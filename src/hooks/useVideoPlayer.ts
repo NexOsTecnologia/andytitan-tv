@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import * as dashjs from 'dashjs';
+import dashjs from 'dashjs';
 
 interface UseVideoPlayerProps {
   url: string;
@@ -72,7 +72,8 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
       });
     } 
     else if (type === 'dash' && dashjs) {
-      const dash = dashjs.MediaPlayer().create();
+      
+      const dash = dashjs.default.MediaPlayer().create();
       dash.initialize(video, url, true);
       dashRef.current = dash;
 
