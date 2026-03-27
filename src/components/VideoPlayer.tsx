@@ -9,9 +9,19 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ channel, onError }) => {
+  // Convertir URL DASH a HLS si es necesario
+  const getStreamUrl = () => {
+    if (!channel?.url) return '';
+    // Si es DASH, intentar convertir a HLS
+    if (channel.type === 'dash') {
+      return channel.url.replace('.mpd', '.m3u8');
+    }
+    return channel.url;
+  };
+
   const { videoRef, isLoading, error } = useVideoPlayer({
-    url: channel?.url || '',
-    type: channel?.type || 'hls',
+    url: getStreamUrl(),
+    type: 'hls',  // Siempre HLS
     onError,
     onPlaying: () => console.log('Playing:', channel?.name)
   });
