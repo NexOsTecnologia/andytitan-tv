@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import dashjs from 'dashjs';
 
 interface UseVideoPlayerProps {
   url: string;
-  type: 'hls';  // Solo HLS, eliminamos DASH
+  type: 'hls' | 'dash';
   onError?: (error: Error) => void;
   onPlaying?: () => void;
 }
@@ -13,6 +14,7 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const dashRef = useRef<dashjs.MediaPlayer | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -21,18 +23,22 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
     setIsLoading(true);
     setError(null);
 
+    // Limpiar reproductores anteriores
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
+    }
+    if (dashRef.current) {
+      dashRef.current.reset();
+      dashRef.current = null;
     }
 
     video.pause();
     video.removeAttribute('src');
     video.load();
 
-    const isHLS = url.includes('.m3u8') || url.includes('.m3u');
-
-    if (isHLS && Hls.isSupported()) {
+    // Reproducción según tipo
+    if (type === 'hls' && Hls.isSupported()) {
       const hls = new Hls({
         debug: false,
         enableWorker: true,
@@ -64,8 +70,33 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
           setIsLoading(false);
         }
       });
-    } else {
-      // Stream directo
+    } 
+    else if (type === 'dash' && dashjs) {
+      const dash = dashjs.MediaPlayer().create();
+      dash.initialize(video, url, true);
+      dashRef.current = dash;
+
+      dash.on(dashjs.MediaPlayer.events.CAN_PLAY, () => {
+        video.play()
+          .then(() => {
+            setIsLoading(false);
+            onPlaying?.();
+          })
+          .catch((err) => {
+            setError('Error al reproducir');
+            onError?.(err);
+            setIsLoading(false);
+          });
+      });
+
+      dash.on(dashjs.MediaPlayer.events.ERROR, (e: any) => {
+        setError('Error DASH');
+        onError?.(new Error(e.toString()));
+        setIsLoading(false);
+      });
+    }
+    else {
+      // Fallback directo
       video.src = url;
       video.play()
         .then(() => {
@@ -81,6 +112,7 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
 
     return () => {
       if (hlsRef.current) hlsRef.current.destroy();
+      if (dashRef.current) dashRef.current.reset();
     };
   }, [url, type]);
 

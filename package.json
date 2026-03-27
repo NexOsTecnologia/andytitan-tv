@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dashjs": "^5.1.1",
     "hls.js": "^1.6.15",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

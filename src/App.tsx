@@ -6,7 +6,6 @@ import { useChannels } from './hooks/useChannels';
 import { Channel } from './types';
 import './App.css';
 
-
 type TabType = 'tv' | 'series';
 
 function App() {
