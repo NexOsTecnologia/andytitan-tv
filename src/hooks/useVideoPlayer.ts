@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+
+// Importación correcta para dashjs
 import dashjs from 'dashjs';
 
 interface UseVideoPlayerProps {
@@ -14,7 +16,7 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const dashRef = useRef<dashjs.MediaPlayer | null>(null);
+  const dashRef = useRef<any>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -37,7 +39,7 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
     video.removeAttribute('src');
     video.load();
 
-    // Reproducción según tipo
+    // Reproducción HLS
     if (type === 'hls' && Hls.isSupported()) {
       const hls = new Hls({
         debug: false,
@@ -71,33 +73,40 @@ export const useVideoPlayer = ({ url, type, onError, onPlaying }: UseVideoPlayer
         }
       });
     } 
-    else if (type === 'dash' && dashjs) {
-      
-      const dash = dashjs.default.MediaPlayer().create();
-      dash.initialize(video, url, true);
-      dashRef.current = dash;
+    // Reproducción DASH
+    else if (type === 'dash') {
+      try {
+        // Intentar diferentes formas de importar dashjs
+        const dash = (dashjs as any).MediaPlayer ? (dashjs as any).MediaPlayer().create() : (dashjs as any).default.MediaPlayer().create();
+        dash.initialize(video, url, true);
+        dashRef.current = dash;
 
-      dash.on(dashjs.MediaPlayer.events.CAN_PLAY, () => {
-        video.play()
-          .then(() => {
-            setIsLoading(false);
-            onPlaying?.();
-          })
-          .catch((err) => {
-            setError('Error al reproducir');
-            onError?.(err);
-            setIsLoading(false);
-          });
-      });
+        dash.on('canPlay', () => {
+          video.play()
+            .then(() => {
+              setIsLoading(false);
+              onPlaying?.();
+            })
+            .catch((err) => {
+              setError('Error al reproducir');
+              onError?.(err);
+              setIsLoading(false);
+            });
+        });
 
-      dash.on(dashjs.MediaPlayer.events.ERROR, (e: any) => {
-        setError('Error DASH');
-        onError?.(new Error(e.toString()));
+        dash.on('error', (e: any) => {
+          setError('Error DASH');
+          onError?.(new Error(e.toString()));
+          setIsLoading(false);
+        });
+      } catch (err) {
+        setError('Error al cargar DASH');
+        onError?.(err as Error);
         setIsLoading(false);
-      });
+      }
     }
     else {
-      // Fallback directo
+      // Stream directo
       video.src = url;
       video.play()
         .then(() => {
